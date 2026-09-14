@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CoachTrack ET | Soccer Session Timesheet & Billing</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="icon.jpg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app-container" class="app-wrapper">
+    <!-- Top Header Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <img src="icon.jpg" alt="CoachTrack ET" class="brand-logo-img">
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">CoachTrack <span class="badge-country">ET</span></h1>
+          <p class="brand-subtitle" id="coach-display-name">⚽ Pitch-Side Assistant</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <span class="status-indicator live" id="sync-status">
+          <span class="dot"></span> Synced
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Content Container (Tabs) -->
+    <main class="main-content">
+      
+      <!-- TAB 1: PITCH LOG / LIVE TIMER -->
+      <section id="tab-timer" class="tab-pane active">
+        <!-- Live Pitch Stopwatch Card -->
+        <div class="hero-card stopwatch-card">
+          <div class="card-glow-bg"></div>
+          <div class="stopwatch-header">
+            <span class="session-badge" id="session-counter-badge">Next Session: #9</span>
+            <span class="live-date" id="current-live-date">Today, 26 Jun</span>
+          </div>
+
+          <div class="stopwatch-display-wrapper">
+            <div class="timer-circle-ring" id="timer-ring">
+              <div class="timer-glow"></div>
+              <div class="timer-readout" id="timer-display">00:00:00</div>
+              <div class="timer-subtext" id="timer-status-text">Ready to kick off</div>
+              <div class="decimal-hours-badge" id="decimal-hours-badge" style="display: none;">0.00 hrs</div>
+            </div>
+          </div>
+
+          <!-- Quick Session Controls -->
+          <div class="stopwatch-actions">
+            <button id="btn-start-timer" class="btn btn-primary btn-large glow-btn" type="button">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Start Practice</span>
+            </button>
+
+            <div id="active-timer-controls" class="timer-control-group" style="display: none;">
+              <button id="btn-pause-timer" class="btn btn-secondary" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                <span id="pause-btn-label">Pause</span>
+              </button>
+              <button id="btn-stop-timer" class="btn btn-danger glow-btn-danger" type="button">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
+                <span>Finish & Log</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Attendance Quick Selector -->
+          <div class="quick-counter-box">
+            <div class="counter-label">
+              <span>Kids in Session</span>
+              <span class="counter-rate-info" id="rate-preview-text">@ 1,000 ETB / kid</span>
+            </div>
+            <div class="counter-controls">
+              <button id="btn-kid-minus" class="btn-step" type="button" aria-label="Decrease kids">-</button>
+              <span id="kid-count-display" class="count-value">4</span>
+              <button id="btn-kid-plus" class="btn-step" type="button" aria-label="Increase kids">+</button>
+            </div>
+            <div class="counter-chips">
+              <button type="button" class="chip" data-kids="3">3 kids</button>
+              <button type="button" class="chip active" data-kids="4">4 kids</button>
+              <button type="button" class="chip" data-kids="5">5 kids</button>
+              <button type="button" class="chip" data-kids="6">6 kids</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pitch-Side Fast Actions -->
+        <div class="quick-action-grid">
+          <button id="btn-quick-rain" class="action-card action-rain" type="button">
+            <div class="action-icon">🌧️</div>
+            <div class="action-details">
+              <span class="action-title">Log Rain / Cancellation</span>
+              <span class="action-desc">Records "NO PRACTICE" with reason</span>
+            </div>
+          </button>
+
+          <button id="btn-manual-entry" class="action-card action-manual" type="button">
+            <div class="action-icon">✍️</div>
+            <div class="action-details">
+              <span class="action-title">Manual Past Entry</span>
+              <span class="action-desc">Forgot to log live? Add hours</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Latest Logged Summary Bar -->
+        <div class="mini-summary-strip">
+          <div class="strip-item">
+            <span class="strip-label">Month Total</span>
+            <span class="strip-val highlight" id="strip-total-birr">24,000 ETB</span>
+          </div>
+          <div class="strip-divider"></div>
+          <div class="strip-item">
+            <span class="strip-label">Completed</span>
+            <span class="strip-val" id="strip-completed-sessions">6 sessions</span>
+          </div>
+          <div class="strip-divider"></div>
+          <div class="strip-item">
+            <span class="strip-label">Hours</span>
+            <span class="strip-val" id="strip-total-hours">15.17 hrs</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: TIMESHEET LIST (Matches Coach's Spreadsheet Exactly) -->
+      <section id="tab-timesheet" class="tab-pane">
+        <div class="section-topbar">
+          <div>
+            <h2 class="section-title">Session Timesheet</h2>
+            <p class="section-caption">Real-time log matching your Google Sheet</p>
+          </div>
+          <button id="btn-export-csv" class="btn btn-outline-small" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export CSV
+          </button>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="filter-bar">
+          <button class="filter-chip active" data-filter="all">All Entries (<span id="count-filter-all">7</span>)</button>
+          <button class="filter-chip" data-filter="completed">Completed (<span id="count-filter-completed">6</span>)</button>
+          <button class="filter-chip" data-filter="cancelled">Cancelled (<span id="count-filter-cancelled">1</span>)</button>
+        </div>
+
+        <!-- Timesheet Cards Container -->
+        <div id="timesheet-list" class="timesheet-cards-container">
+          <!-- Dynamically populated via app.js -->
+        </div>
+      </section>
+
+      <!-- TAB 3: BILLING & SUMMARY INVOICE -->
+      <section id="tab-billing" class="tab-pane">
+        <div class="section-topbar">
+          <div>
+            <h2 class="section-title">Monthly Summary & Earnings</h2>
+            <p class="section-caption">Auto-calculated billing for parents/academy</p>
+          </div>
+          <button id="btn-share-telegram" class="btn btn-primary btn-small" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.93-1.28 4.88-2.12 5.86-2.54 2.79-1.18 3.37-1.38 3.75-1.39.08 0 .27.02.39.12.1.08.13.2.14.28 0 .07.01.2-.02.43z"/></svg>
+            Share to Telegram
+          </button>
+        </div>
+
+        <!-- Metric Big Cards Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card metric-hero">
+            <span class="metric-label">Total Earnings</span>
+            <div class="metric-val-large" id="metric-total-rate">24,000 <span class="unit">ETB</span></div>
+            <div class="metric-formula" id="metric-rate-formula">6 sessions × 4 kids × 1,000 ETB</div>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Completed Sessions</span>
+            <div class="metric-val" id="metric-completed-count">6</div>
+            <span class="metric-sub">Practices held</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">No-Practice Days</span>
+            <div class="metric-val warn" id="metric-nopractice-count">1</div>
+            <span class="metric-sub">Weather / Rain</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Total Pitch Hours</span>
+            <div class="metric-val" id="metric-total-hours">15.17</div>
+            <span class="metric-sub">Decimal hours</span>
+          </div>
+
+          <div class="metric-card">
+            <span class="metric-label">Avg Kids / Session</span>
+            <div class="metric-val" id="metric-kids-session">4</div>
+            <span class="metric-sub">Attendance</span>
+          </div>
+        </div>
+
+        <!-- Invoice / Statement Preview Card -->
+        <div class="invoice-preview-card" id="invoice-preview-container">
+          <div class="invoice-header">
+            <div>
+              <span class="invoice-tag">OFFICIAL TIMESHEET STATEMENT</span>
+              <h3 class="invoice-title" id="inv-period-title">Soccer Coaching Timesheet</h3>
+            </div>
+            <div class="invoice-stamp">VERIFIED</div>
+          </div>
+
+          <div class="invoice-body">
+            <div class="inv-row">
+              <span>Coach:</span>
+              <strong id="inv-coach-name">Coach Dawit</strong>
+            </div>
+            <div class="inv-row">
+              <span>Billing Rate:</span>
+              <strong id="inv-rate-breakdown">1,000 ETB / Kid / Session</strong>
+            </div>
+            <div class="inv-row">
+              <span>Sessions Completed:</span>
+              <strong id="inv-completed-val">6 Sessions</strong>
+            </div>
+            <div class="inv-row">
+              <span>Average Attendance:</span>
+              <strong id="inv-attendance-val">4 Kids</strong>
+            </div>
+            <div class="inv-row">
+              <span>Total Hours:</span>
+              <strong id="inv-hours-val">15.17 hrs</strong>
+            </div>
+            <div class="inv-divider"></div>
+            <div class="inv-row inv-total-row">
+              <span>Total Due:</span>
+              <span class="inv-total-birr" id="inv-total-due">24,000 ETB</span>
+            </div>
+          </div>
+
+          <!-- Payment Info for Ethiopian Parents -->
+          <div class="payment-box">
+            <div class="payment-box-title">🇪🇹 Payment Details (Telebirr & CBE)</div>
+            <div class="payment-methods">
+              <div class="pay-item">
+                <span class="pay-label">Telebirr:</span>
+                <span class="pay-num" id="inv-telebirr-num">0911 234 567</span>
+                <button class="btn-copy" data-copy="0911234567">Copy</button>
+              </div>
+              <div class="pay-item">
+                <span class="pay-label">CBE Account:</span>
+                <span class="pay-num" id="inv-cbe-num">1000 1234 5678 9</span>
+                <button class="btn-copy" data-copy="1000123456789">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="invoice-footer-actions">
+            <button id="btn-copy-summary-text" class="btn btn-outline" type="button">
+              📋 Copy Summary Text
+            </button>
+            <button id="btn-share-invoice-tg" class="btn btn-primary" type="button">
+              ✈️ Send to Parent Telegram Group
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: SETTINGS & GOOGLE SHEETS SYNC -->
+      <section id="tab-settings" class="tab-pane">
+        <h2 class="section-title">Coach & Sync Settings</h2>
+        <p class="section-caption">Configure your billing rates and Google Sheet sync</p>
+
+        <form id="settings-form" class="settings-form">
+          <div class="form-group">
+            <label for="setting-coach-name">Coach Name</label>
+            <input type="text" id="setting-coach-name" class="form-control" value="Coach Dawit">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="setting-rate-per-kid">Rate per Kid/Session (ETB)</label>
+              <input type="number" id="setting-rate-per-kid" class="form-control" value="1000" min="0" step="50">
+            </div>
+            <div class="form-group">
+              <label for="setting-default-kids">Default Kids Count</label>
+              <input type="number" id="setting-default-kids" class="form-control" value="4" min="1" max="50">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="setting-telebirr">Telebirr Phone Number</label>
+            <input type="tel" id="setting-telebirr" class="form-control" value="0911 234 567">
+          </div>
+
+          <div class="form-group">
+            <label for="setting-cbe">CBE Bank Account Number</label>
+            <input type="text" id="setting-cbe" class="form-control" value="1000 1234 5678 9">
+          </div>
+
+          <!-- Google Sheets Webhook Configuration -->
+          <div class="sync-card">
+            <div class="sync-header">
+              <div class="sync-icon">📊</div>
+              <div>
+                <h4>Google Sheet Real-Time Auto-Sync</h4>
+                <p>Every logged practice will automatically add a row to your Google Sheet.</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="setting-sheets-webhook">Google Apps Script Webhook URL</label>
+              <input type="url" id="setting-sheets-webhook" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+              <small class="form-hint">Paste your deployed Web App URL here (see Google Apps Script instructions in file).</small>
+            </div>
+            <button id="btn-test-sheet-sync" type="button" class="btn btn-outline-small">
+              Test Connection
+            </button>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary btn-large">Save Preferences</button>
+            <button type="button" id="btn-open-guide" class="btn btn-secondary">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <span>Replay Setup Wizard</span>
+            </button>
+            <button type="button" id="btn-clear-all" class="btn btn-outline-danger">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <span>Clear Timesheet (Start New Month)</span>
+            </button>
+            <button type="button" id="btn-reset-demo" class="btn btn-outline-small" style="margin-top: 4px;">
+              <span>Load June 2026 Sample Data</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar (Telegram Native Feel) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="tab-timer" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Timer</span>
+      </button>
+      <button class="nav-item" data-tab="tab-timesheet" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Timesheet</span>
+      </button>
+      <button class="nav-item" data-tab="tab-billing" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <span>Earnings</span>
+      </button>
+      <button class="nav-item" data-tab="tab-settings" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL 1: Manual / Edit Session Modal -->
+  <div id="modal-session" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 id="modal-session-title">Log Practice Session</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-session-modal">&times;</button>
+      </div>
+      <form id="form-session" class="modal-body">
+        <input type="hidden" id="entry-id">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="entry-date">Date</label>
+            <input type="date" id="entry-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="entry-session-status">Practice Held?</label>
+            <select id="entry-session-status" class="form-control">
+              <option value="YES">YES (Completed)</option>
+              <option value="NO PRACTICE">NO PRACTICE</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="practice-time-fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="entry-start-time">Start Time</label>
+              <input type="time" id="entry-start-time" class="form-control" value="15:00">
+            </div>
+            <div class="form-group">
+              <label for="entry-end-time">End Time</label>
+              <input type="time" id="entry-end-time" class="form-control" value="17:00">
+            </div>
+          </div>
+
+          <div class="duration-preview-callout">
+            <span>Calculated Duration:</span>
+            <strong id="modal-duration-preview">2.00 hrs</strong>
+          </div>
+
+          <div class="form-group">
+            <label for="entry-kids-count">Kids in Session</label>
+            <input type="number" id="entry-kids-count" class="form-control" value="4" min="1" max="50">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="entry-notes">Notes (e.g. Rain, Pitch condition)</label>
+          <input type="text" id="entry-notes" class="form-control" placeholder="Optional notes...">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-delete-entry" class="btn btn-outline-danger" style="display: none;">Delete</button>
+          <button type="submit" class="btn btn-primary btn-large glow-btn flex-grow" id="btn-save-session">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Save Session</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Rain / Cancellation Modal -->
+  <div id="modal-rain" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3>🌧️ Log No-Practice Day</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-rain-modal">&times;</button>
+      </div>
+      <form id="form-rain" class="modal-body">
+        <div class="form-group">
+          <label for="rain-date">Date</label>
+          <input type="date" id="rain-date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Reason for Cancellation</label>
+          <div class="reason-chips">
+            <label class="radio-chip active">
+              <input type="radio" name="rain-reason" value="Rain" checked> Rain
+            </label>
+            <label class="radio-chip">
+              <input type="radio" name="rain-reason" value="Pitch Flooded"> Pitch Flooded
+            </label>
+            <label class="radio-chip">
+              <input type="radio" name="rain-reason" value="Holiday"> Holiday
+            </label>
+            <label class="radio-chip">
+              <input type="radio" name="rain-reason" value="Coach Sick"> Coach Unavailable
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="rain-custom-note">Custom Note</label>
+          <input type="text" id="rain-custom-note" class="form-control" placeholder="e.g. Heavy afternoon rain">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-rain">Cancel</button>
+          <button type="submit" class="btn btn-danger btn-large flex-grow" id="btn-save-rain">Log No Practice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- GUIDED ONBOARDING WIZARD MODAL -->
+  <div id="onboarding-modal" class="onboarding-backdrop">
+    <div class="onboarding-dialog">
+      <!-- Wizard Progress Header -->
+      <div class="wizard-header">
+        <div class="wizard-dots">
+          <span class="dot active" data-step="1"></span>
+          <span class="dot" data-step="2"></span>
+          <span class="dot" data-step="3"></span>
+          <span class="dot" data-step="4"></span>
+        </div>
+        <button type="button" class="btn-wizard-skip" id="btn-wizard-skip">Skip</button>
+      </div>
+
+      <!-- WIZARD STEP 1: WELCOME & COACH PROFILE -->
+      <div class="wizard-step active" data-step="1">
+        <div class="wizard-icon-badge">
+          <img src="icon.jpg" alt="CoachTrack ET" class="wizard-logo-img">
+        </div>
+        <h2 class="wizard-title">Welcome to CoachTrack <span class="badge-country">ET</span></h2>
+        <p class="wizard-subtitle">Built for Ethiopian soccer coaches to replace tedious spreadsheet logging with a 1-tap pitch assistant.</p>
+
+        <div class="wizard-form-box">
+          <div class="form-group">
+            <label for="wizard-coach-name">Your Coach Name</label>
+            <input type="text" id="wizard-coach-name" class="form-control" placeholder="e.g. Coach Dawit">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="wizard-rate">Session Rate / Kid (ETB)</label>
+              <input type="number" id="wizard-rate" class="form-control" value="1000" step="50">
+            </div>
+            <div class="form-group">
+              <label for="wizard-kids">Default Kids / Session</label>
+              <input type="number" id="wizard-kids" class="form-control" value="4" min="1" max="50">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIZARD STEP 2: PITCH-SIDE STOPWATCH TOUR -->
+      <div class="wizard-step" data-step="2">
+        <div class="wizard-icon-emoji">⏱️</div>
+        <h2 class="wizard-title">Pitch-Side Superpowers</h2>
+        <p class="wizard-subtitle">Everything you need to log practices without typing tiny numbers under the sun.</p>
+
+        <div class="wizard-feature-list">
+          <div class="feature-item">
+            <div class="feat-icon">⚡</div>
+            <div class="feat-text">
+              <strong>1-Tap Practice Stopwatch</strong>
+              <p>Hit "Start Practice" at kickoff. It runs safely in the background even if you close Telegram.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feat-icon">📐</div>
+            <div class="feat-text">
+              <strong>Zero Mental Math</strong>
+              <p>Calculates decimal duration automatically (e.g. 14:20 to 17:50 becomes 3.50 hrs instantly).</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feat-icon">🌧️</div>
+            <div class="feat-text">
+              <strong>1-Tap Rain Days</strong>
+              <p>Log cancelled practices with reasons (Rain, Flooded pitch) without messing up your earnings totals.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIZARD STEP 3: PARENT BILLING (TELEBIRR & CBE) -->
+      <div class="wizard-step" data-step="3">
+        <div class="wizard-icon-emoji">🇪🇹</div>
+        <h2 class="wizard-title">Parent Billing & Invoicing</h2>
+        <p class="wizard-subtitle">Generate official timesheet statements to forward directly into parent Telegram chats.</p>
+
+        <div class="wizard-form-box">
+          <div class="form-group">
+            <label for="wizard-telebirr">Telebirr Phone Number</label>
+            <input type="tel" id="wizard-telebirr" class="form-control" placeholder="0911 234 567">
+          </div>
+          <div class="form-group">
+            <label for="wizard-cbe">CBE Bank Account Number</label>
+            <input type="text" id="wizard-cbe" class="form-control" placeholder="1000 1234 5678 9">
+          </div>
+          <small class="wizard-note">💡 These will appear with 1-tap "Copy" buttons on your parent payment receipts.</small>
+        </div>
+      </div>
+
+      <!-- WIZARD STEP 4: READY TO GO -->
+      <div class="wizard-step" data-step="4">
+        <div class="wizard-icon-emoji">⚽</div>
+        <h2 class="wizard-title">Choose How to Start</h2>
+        <p class="wizard-subtitle">Would you like to start logging with an empty timesheet today, or explore the pre-loaded June 2026 data?</p>
+
+        <div class="wizard-choice-cards">
+          <label class="wizard-choice-card active">
+            <input type="radio" name="wizard-start-mode" value="fresh" checked>
+            <div class="choice-content">
+              <span class="choice-badge">Recommended</span>
+              <strong>✨ Start Fresh (Blank Timesheet)</strong>
+              <p>Ready to log your first practice today starting at Session #1.</p>
+            </div>
+          </label>
+          <label class="wizard-choice-card">
+            <input type="radio" name="wizard-start-mode" value="demo">
+            <div class="choice-content">
+              <strong>📋 Keep June 2026 Timesheet</strong>
+              <p>Explore with 6 completed practices and 24,000 ETB pre-calculated.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Wizard Navigation Footer -->
+      <div class="wizard-footer">
+        <button type="button" class="btn btn-secondary" id="btn-wizard-prev" style="display: none;">Back</button>
+        <button type="button" class="btn btn-primary btn-large flex-grow" id="btn-wizard-next">
+          <span>Continue</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toast-icon">⚽</span>
+    <span id="toast-message">Session saved!</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
