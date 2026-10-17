@@ -427,6 +427,35 @@
   }
 
   // --- 7. Summary & Earnings Calculations ---
+  // Single source of truth for billing, shared by the earnings view, the invoice
+  // card and the statement sent to parents. Each completed session is billed for
+  // the kids who actually attended it.
+  function computeBilling() {
+    const completed = sessions.filter(s => s.status === 'YES');
+    const kidsFor = s => Number(s.kids || settings.defaultKids || 4);
+    const totalKidSessions = completed.reduce((acc, s) => acc + kidsFor(s), 0);
+    const avgKids = completed.length > 0
+      ? Math.round((totalKidSessions / completed.length) * 10) / 10
+      : (settings.defaultKids || 4);
+    const totalEarningsETB = totalKidSessions * settings.ratePerKid;
+
+    const months = sessions
+      .map(s => s.date)
+      .filter(Boolean)
+      .map(d => new Date(`${d}T00:00:00`))
+      .filter(d => !isNaN(d))
+      .sort((a, b) => a - b);
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    let periodLabel = fmt(new Date());
+    if (months.length) {
+      const first = fmt(months[0]);
+      const last = fmt(months[months.length - 1]);
+      periodLabel = first === last ? first : `${first} – ${last}`;
+    }
+
+    return { completed, totalKidSessions, avgKids, totalEarningsETB, periodLabel };
+  }
+
   function updateSummariesAndBilling() {
     const completedSessions = sessions.filter(s => s.status === 'YES');
     const cancelledSessions = sessions.filter(s => s.status !== 'YES');
@@ -438,16 +467,9 @@
     const totalHours = completedSessions.reduce((acc, curr) => acc + Number(curr.duration || 0), 0);
     const formattedHours = Math.round(totalHours * 100) / 100;
 
-    // Average kids
-    let totalKidsCount = 0;
-    completedSessions.forEach(s => {
-      totalKidsCount += Number(s.kids || settings.defaultKids || 4);
-    });
-    const avgKids = totalSessionsCompleted > 0 ? Math.round(totalKidsCount / totalSessionsCompleted) : (settings.defaultKids || 4);
-
-    // Total Birr (Formula: Completed Sessions * Kids/session * Rate per kid)
-    // Matches screenshot: 6 sessions completed * 4 kids * 1000 ETB = 24,000 ETB
-    const totalEarningsETB = totalSessionsCompleted * avgKids * settings.ratePerKid;
+    // Total Birr: sum over completed sessions of (kids attended × rate per kid).
+    // Sample data: 6 sessions × 4 kids × 1000 ETB = 24,000 ETB.
+    const { totalKidSessions, avgKids, totalEarningsETB } = computeBilling();
 
     // Update Mini Strip on Tab 1
     const stripBirr = document.getElementById('strip-total-birr');
@@ -468,7 +490,7 @@
 
     const metricFormula = document.getElementById('metric-rate-formula');
     if (metricFormula) {
-      metricFormula.textContent = `${totalSessionsCompleted} sessions × ${avgKids} kids × ${formatNumberETB(settings.ratePerKid)} ETB`;
+      metricFormula.textContent = `${totalKidSessions} kid-sessions (${totalSessionsCompleted} sessions) × ${formatNumberETB(settings.ratePerKid)} ETB`;
     }
 
     const metricCompleted = document.getElementById('metric-completed-count');
@@ -728,19 +750,17 @@
 
   // --- 11. Sharing & Exporting ---
   function generateSummaryText() {
-    const completedSessions = sessions.filter(s => s.status === 'YES');
+    const { completed: completedSessions, totalKidSessions, avgKids, totalEarningsETB: totalEarnings, periodLabel } = computeBilling();
     const noPracticeDays = sessions.filter(s => s.status !== 'YES').length;
     const totalHours = completedSessions.reduce((acc, curr) => acc + Number(curr.duration || 0), 0).toFixed(2);
-    const avgKids = settings.defaultKids || 4;
-    const totalEarnings = completedSessions.length * avgKids * settings.ratePerKid;
 
     return `⚽ *${settings.coachName.toUpperCase()} - SOCCER TIMESHEET STATEMENT*
 ━━━━━━━━━━━━━━━━━━━━
-📅 *Period:* June 2026 Timesheet
+📅 *Period:* ${periodLabel} Timesheet
 ✅ *Sessions Completed:* ${completedSessions.length}
 🌧️ *Cancelled / Rain Days:* ${noPracticeDays}
 ⏱️ *Total Pitch Hours:* ${totalHours} hrs
-👥 *Attendance:* ${avgKids} kids / session
+👥 *Attendance:* ${totalKidSessions} kid-sessions (avg ${avgKids} / session)
 💵 *Session Rate:* ${formatNumberETB(settings.ratePerKid)} ETB / kid / session
 
 💰 *TOTAL AMOUNT DUE: ${formatNumberETB(totalEarnings)} ETB*
@@ -1075,7 +1095,10 @@ _Logged via CoachTrack ET_`;
     document.querySelectorAll('.btn-copy').forEach(btn => {
       btn.addEventListener('click', () => {
         triggerHaptic('light');
-        const text = btn.getAttribute('data-copy');
+        // Copy the number currently shown (the coach's saved details), without spaces.
+        const shown = btn.parentElement?.querySelector('.pay-num')?.textContent || '';
+        const text = shown.replace(/\s+/g, '');
+        if (!text) return;
         navigator.clipboard.writeText(text).then(() => {
           showToast(`Copied ${text}`, '📋');
         });
